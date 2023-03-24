@@ -7,6 +7,7 @@ using Microsoft.Azure.WebJobs;
 using Microsoft.Azure.WebJobs.Extensions.Http;
 using Microsoft.Extensions.Logging;
 using ImageMagick;
+using System.Net.Http;
 
 namespace ConvertImage
 {
@@ -21,7 +22,7 @@ namespace ConvertImage
 
         [FunctionName("ImageConverter")]
         public static async Task<IActionResult> Run(
-            [HttpTrigger(AuthorizationLevel.Function, "get", Route = null)] HttpRequest req,
+            [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = null)] HttpRequest req,
             ILogger log)
         {
             log.LogInformation("C# HTTP trigger function processed a request.");
@@ -40,24 +41,27 @@ namespace ConvertImage
                 return new BadRequestObjectResult("Error: url is not valid");
 
             // set default quality if none is given
-            if (quality == 0) 
+            if (quality == 0)
                 quality = 90;
             try
             {
-                // read and convert image
-                var imgByteArr = Convert(url, height, width, quality);
-                
-                // get image info
-                MagickImageInfo info = new MagickImageInfo(imgByteArr);
-                Console.WriteLine($"result width: {info.Width}");
-                Console.WriteLine($"result height: {info.Height}");
-                Console.WriteLine($"result colorspace: {info.ColorSpace}");
-                Console.WriteLine($"result format: {info.Format}");
-                Console.WriteLine($"result file-length = " + imgByteArr.Length.ToString());
+                using (var client = new HttpClient())
+                {
+                    // read file as stream
+                    var content = await client.GetStreamAsync(url);
+                    var imgByteArr = Resize(content, height, width, quality);
 
-                // Return resulting image
-                return new FileContentResult(imgByteArr, "image/jpeg");
+                    // get image info
+                    MagickImageInfo info = new MagickImageInfo(imgByteArr);
+                    Console.WriteLine($"result width: {info.Width}");
+                    Console.WriteLine($"result height: {info.Height}");
+                    Console.WriteLine($"result colorspace: {info.ColorSpace}");
+                    Console.WriteLine($"result format: {info.Format}");
+                    Console.WriteLine($"result filesize = " + imgByteArr.Length.ToString());
 
+                    // return final image result
+                    return new FileContentResult(imgByteArr, "image/jpeg");
+                }
             }
             catch (Exception ex)
             {
@@ -66,7 +70,7 @@ namespace ConvertImage
         }
 
         // Convert image
-        private static byte[] Convert(string url, int height, int width, int quality)
+        private static byte[] Resize(System.IO.Stream url, int height, int width, int quality)
         {
             byte[] result = null;
 
@@ -75,8 +79,9 @@ namespace ConvertImage
             {
                 //fileStream.CopyTo(memoryStream);
                 memoryStream.Position = 0;
-    
-                using(var imageMagick = new MagickImage(url)) {
+
+                using (var imageMagick = new MagickImage(url))
+                {
                     //imageMagick.Thumbnail(new MagickGeometry(width, height));
                     imageMagick.Strip();
                     imageMagick.Quality = quality;
@@ -88,7 +93,6 @@ namespace ConvertImage
 
                 // convert stream to byte[]
                 result = memoryStream.ToArray();
-
                 return result;
             }
         }
