@@ -27,6 +27,9 @@ namespace ConvertImage
         {
             log.LogInformation("C# HTTP trigger function processed a request.");
 
+            // blob store base url
+            var blobStoreBaseUrl = "https://storageproductcatalog.blob.core.windows.net/";
+
             // parse query parameter
             string url = req.Query["url"];
             int width;
@@ -43,12 +46,13 @@ namespace ConvertImage
             // set default quality if none is given
             if (quality == 0)
                 quality = 90;
+                
             try
             {
                 using (var client = new HttpClient())
                 {
                     // read file as stream
-                    var content = await client.GetStreamAsync(url);
+                    var content = await client.GetStreamAsync(blobStoreBaseUrl + url);
                     var imgByteArr = Resize(content, height, width, quality);
 
                     // get image info
@@ -57,7 +61,7 @@ namespace ConvertImage
                     Console.WriteLine($"result height: {info.Height}");
                     Console.WriteLine($"result colorspace: {info.ColorSpace}");
                     Console.WriteLine($"result format: {info.Format}");
-                    Console.WriteLine($"result filesize = " + imgByteArr.Length.ToString());
+                    Console.WriteLine($"result filesize = " + imgByteArr.Length);
 
                     // return final image result
                     return new FileContentResult(imgByteArr, "image/jpeg");
@@ -77,7 +81,6 @@ namespace ConvertImage
             // memory stream
             using (var memoryStream = new MemoryStream())
             {
-                //fileStream.CopyTo(memoryStream);
                 memoryStream.Position = 0;
 
                 using (var imageMagick = new MagickImage(url))
