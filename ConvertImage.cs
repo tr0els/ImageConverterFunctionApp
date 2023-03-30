@@ -74,7 +74,7 @@ namespace ConvertImage
         }
 
         // Convert image
-        private static byte[] Resize(System.IO.Stream url, int height, int width, int quality)
+        private static byte[] Resize(System.IO.Stream content, int height, int width, int quality)
         {
             byte[] result = null;
 
@@ -83,7 +83,7 @@ namespace ConvertImage
             {
                 memoryStream.Position = 0;
 
-                using (var imageMagick = new MagickImage(url))
+                using (var imageMagick = new MagickImage(content))
                 {
                     //imageMagick.Thumbnail(new MagickGeometry(width, height));
                     imageMagick.Strip();
